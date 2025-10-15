@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海龟汤解谜终端 - 数字侦探</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300&display=swap');
+        
+        :root {
+            --bg-primary: #0a0f0a;
+            --bg-panel: rgba(18, 28, 18, 0.75);
+            --bg-panel-gradient: rgba(25, 40, 25, 0.65);
+            --accent-primary: #4caf50;
+            --accent-secondary: #81c784;
+            --accent-warning: #cdae70;
+            --accent-error: #d32f2f;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-dim: #757575;
+            --border-color: rgba(76, 175, 80, 0.3);
+            --shadow-glow: 0 0 12px rgba(76, 175, 80, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 数据流背景动效 */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.15;
+        }
+
+        .matrix-column {
+            position: absolute;
+            color: var(--accent-primary);
+            font-size: 14px;
+            font-family: monospace;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            white-space: nowrap;
+            user-select: none;
+            animation: matrix-fall linear infinite;
+        }
+
+        @keyframes matrix-fall {
+            0% { transform: translateY(-100vh); }
+            100% { transform: translateY(100vh); }
+        }
+
+        /* 主容器 */
+        .app-container {
+            position: relative;
+            z-index: 2;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部导航栏 */
+        .nav-bar {
+            background: linear-gradient(135deg, var(--bg-panel-gradient), var(--bg-panel));
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-title {
+            color: var(--accent-primary);
+            font-size: 18px;
+            font-weight: 700;
+            text-shadow: var(--shadow-glow);
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--accent-primary);
+            color: var(--accent-primary);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 12px;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .nav-btn.active {
+            background: var(--accent-secondary);
+            border-color: var(--accent-secondary);
+            color: var(--bg-primary);
+        }
+
+        /* 页面切换 */
+        .page {
+            display: none;
+            flex: 1;
+            padding: 20px;
+        }
+
+        .page.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 游戏页面布局 */
+        .game-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* 故事显示区域 */
+        .story-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 25px 35px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .story-content {
+            text-align: left;
+            line-height: 1.9;
+            font-size: 14px;
+            max-width: 100%;
+            color: var(--text-primary);
+        }
+
+        .story-content.center {
+            text-align: center;
+        }
+        
+        .story-text p {
+            margin-bottom: 1.2em;
+        }
+        
+        .story-text .dialogue {
+            text-indent: 0;
+            border-left: 2px solid;
+            padding-left: 1.5em;
+            margin-left: 2em;
+            font-style: italic;
+        }
+
+        .story-text .dialogue-mysterious {
+            color: var(--accent-warning);
+            font-weight: bold;
+            text-indent: 0;
+            margin-bottom: 2em;
+        }
+
+        .story-text .dialogue-protagonist {
+            color: var(--accent-secondary);
+            border-color: var(--accent-secondary);
+        }
+
+        .story-text .dialogue-friend {
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+        
+        .story-text .highlight {
+            color: var(--accent-warning);
+            font-weight: bold;
+            background-color: rgba(205, 174, 112, 0.15);
+            padding: 0 4px;
+        }
+        
+        .separator {
+            color: var(--accent-warning);
+            text-align: center;
+            margin: 25px 0;
+            font-weight: 700;
+            letter-spacing: 5px;
+        }
+
+        /* 打字机光标 */
+        .typing-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background-color: var(--accent-primary);
+            margin-left: 4px;
+            animation: blink 1s step-end infinite;
+            vertical-align: bottom;
+        }
+
+        @keyframes blink {
+            from, to { background-color: transparent; }
+            50% { background-color: var(--accent-primary); }
+        }
+
+
+        /* 线索和注释样式 */
+        .clue-target {
+            position: relative;
+            display: inline-block;
+            transition: color 0.5s ease;
+        }
+        .clue-target.revealed {
+            text-decoration: line-through;
+            text-decoration-color: var(--accent-error);
+            color: var(--text-dim);
+        }
+        .annotation {
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background-color: rgba(205, 174, 112, 0.1);
+            border: 1px solid var(--accent-warning);
+            color: var(--accent-warning);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Kalam', cursive;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
+            z-index: 10;
+        }
+        .clue-target.revealed .annotation {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* 提示(批注)相关样式 */
+        .hint-target {
+            position: relative;
+            display: inline-block;
+            transition: color 0.3s ease;
+        }
+        .hint-target.revealed {
+            color: var(--accent-secondary); 
+        }
+        .hint-annotation {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(2px);
+            font-size: 10px;
+            font-family: 'Kalam', cursive;
+            color: var(--accent-warning);
+            background: rgba(10, 15, 10, 0.9);
+            padding: 2px 5px;
+            border-radius: 3px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+        .hint-target.revealed .hint-annotation {
+            opacity: 1;
+        }
+
+        .start-game-btn {
+            background: transparent;
+            border: 2px solid var(--accent-primary);
+            color: var(--accent-primary);
+            padding: 15px 30px;
+            font-size: 18px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .start-game-btn:hover {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* 通用面板样式 */
+        .progress-panel, .history-panel, .input-panel, .config-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .config-panel { padding: 25px; }
+
+
+        .progress-title, .history-title, .config-title {
+            color: var(--accent-primary);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .config-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            width: 0%;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .history-panel {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .history-title {
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .history-item {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: rgba(76, 175, 80, 0.08);
+            border-left: 3px solid var(--accent-primary);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .history-question {
+            color: var(--text-primary);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .history-answer {
+            color: var(--text-secondary);
+            font-style: italic;
+            white-space: pre-wrap;
+        }
+
+        .history-answer.positive { color: var(--accent-secondary); }
+        .history-answer.semi-positive { color: var(--accent-primary); }
+        .history-answer.negative { color: var(--accent-error); }
+        .history-answer.neutral { color: var(--accent-warning); }
+
+        .input-panel {
+            position: sticky;
+            bottom: 20px;
+            z-index: 50;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .send-btn, .hint-btn {
+            flex-shrink: 0;
+        }
+
+        .input-field {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 15px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-dim);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: var(--bg-primary);
+            padding: 15px 25px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            background: var(--text-dim);
+        }
+        
+        .hint-btn {
+            background: transparent;
+            border: 2px solid var(--accent-warning);
+            color: var(--accent-warning);
+            padding: 15px 25px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .hint-btn:hover:not(:disabled) {
+            background: var(--accent-warning);
+            color: var(--bg-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(205, 174, 112, 0.4);
+        }
+
+        .hint-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            background: transparent !important;
+            color: var(--accent-warning) !important;
+        }
+
+
+        /* AI配置页面 */
+        .config-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .config-panel { height: fit-content; }
+
+        .form-group { margin-bottom: 20px; }
+
+        .form-label {
+            display: block;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .form-btn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: var(--bg-primary);
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .form-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .form-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: var(--text-dim);
+        }
+
+        .form-btn.secondary {
+            background: transparent;
+            border: 2px solid var(--accent-warning);
+            color: var(--accent-warning);
+        }
+
+        .form-btn.secondary:hover {
+            background: var(--accent-warning);
+            color: var(--bg-primary);
+        }
+
+        /* 状态消息 */
+        .status-message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .status-success { background: rgba(129, 199, 132, 0.1); border: 1px solid var(--accent-secondary); color: var(--accent-secondary); }
+        .status-error { background: rgba(211, 47, 47, 0.1); border: 1px solid var(--accent-error); color: var(--accent-error); }
+        .status-info { background: rgba(76, 175, 80, 0.1); border: 1px solid var(--accent-primary); color: var(--accent-primary); }
+
+        /* 参数控制 */
+        .param-control { margin-bottom: 15px; }
+
+        .param-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .param-label { color: var(--text-primary); font-size: 12px; }
+        .param-value { color: var(--accent-primary); font-weight: 700; }
+
+        .param-slider { display: flex; align-items: center; gap: 10px; }
+
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        .param-input {
+            width: 80px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+        }
+
+        /* 高级设置 */
+        .advanced-toggle {
+            background: transparent;
+            border: none;
+            color: var(--accent-primary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .advanced-content {
+            margin-top: 15px;
+            padding: 20px;
+            background: rgba(76, 175, 80, 0.05);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+            border-radius: 4px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .config-layout { grid-template-columns: 1fr; }
+            .input-container { flex-direction: column; }
+            .input-field, .send-btn, .hint-btn { width: 100%; }
+        }
+
+        .hidden { display: none !important; }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            border-top-color: var(--bg-primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 数据流背景 -->
+    <div class="matrix-bg" id="matrixBg"></div>
+    
+    <div class="app-container">
+        <!-- 导航栏 -->
+        <nav class="nav-bar">
+            <div class="nav-title">◢ 海龟汤解谜终端 ◣</div>
+            <div class="nav-controls">
+                <button id="nav-game-btn" class="nav-btn active">游戏</button>
+                <button id="nav-config-btn" class="nav-btn">AI配置</button>
+            </div>
+        </nav>
+
+        <!-- 游戏页面 -->
+        <div id="gamePage" class="page active">
+            <div class="game-layout">
+                <!-- 故事显示区域 -->
+                <div class="story-panel" id="storyPanel">
+                    <div class="story-content center">
+                        <button class="start-game-btn" onclick="startGame()">
+                            ▷ 点击开始游戏
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 进度显示 -->
+                <div class="progress-panel" id="progressPanel" style="display: none;">
+                    <div class="progress-title">解谜进度</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0% (0/110)</div>
+                </div>
+
+                <!-- 历史提问区域 -->
+                <div class="history-panel" id="historyPanel" style="display: none;">
+                    <div class="history-title">◆ 历史提问记录</div>
+                    <div id="historyContainer">
+                        <div style="color: var(--text-dim); text-align: center; padding: 20px;">
+                            暂无提问记录...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-panel">
+                    <div class="input-container">
+                        <input type="text" class="input-field" id="questionInput" 
+                               placeholder="请输入您的问题..." disabled>
+                        <button class="send-btn" id="sendBtn" onclick="sendQuestion()" disabled>
+                            发送
+                        </button>
+                        <button class="hint-btn" id="hintBtn" onclick="showHint()" disabled>
+                            提示
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI配置页面 -->
+        <div id="configPage" class="page">
+            <div class="config-layout">
+                <div class="config-panel">
+                    <h2 class="config-title">API 配置</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="apiType">选择API类型：</label>
+                        <select class="form-select" id="apiType">
+                            <option value="custom">自定义API</option>
+                            <option value="proxy">反向代理</option>
+                        </select>
+                    </div>
+
+                    <!-- 自定义API配置 -->
+                    <div id="custom-api-config">
+                        <div class="form-group">
+                            <label class="form-label" for="apiHost">API 主机地址 (Base URL)：</label>
+                            <input type="text" class="form-input" id="apiHost" placeholder="例如：https://api.deepseek.com/v1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="apiKey">API 密钥：</label>
+                            <input type="password" class="form-input" id="apiKey" placeholder="输入您的API Key">
+                        </div>
+                        <div class="form-group">
+                            <button class="form-btn" id="testConnectBtn">测试连接并获取模型</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="modelSelect">选择模型：</label>
+                            <select class="form-select" id="modelSelect"></select>
+                        </div>
+                        <div id="connectionStatus"></div>
+                        
+                        <!-- 高级参数设置 -->
+                        <div style="margin-top: 25px;">
+                            <button class="advanced-toggle" id="customAdvancedToggle">
+                                <span>▼</span> 高级参数设置
+                            </button>
+                            <div class="advanced-content" id="customAdvancedContent" style="display: none;">
+                                <div class="param-control">
+                                    <div class="param-header">
+                                        <span class="param-label">最大输出Token数:</span>
+                                        <span class="param-value" id="customMaxTokensValue">1024</span>
+                                    </div>
+                                    <div class="param-slider">
+                                        <input type="range" class="slider" id="customMaxTokens" min="1" max="8192" value="1024" step="1">
+                                        <input type="number" class="param-input" id="customMaxTokensInput" min="1" max="8192" value="1024">
+                                    </div>
+                                </div>
+                                <div class="param-control">
+                                    <div class="param-header">
+                                        <span class="param-label">温度 (Temperature):</span>
+                                        <span class="param-value" id="customTemperatureValue">0.7</span>
+                                    </div>
+                                    <div class="param-slider">
+                                        <input type="range" class="slider" id="customTemperature" min="0" max="2" value="0.7" step="0.1">
+                                        <input type="number" class="param-input" id="customTemperatureInput" min="0" max="2" value="0.7" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="param-control">
+                                    <div class="param-header">
+                                        <span class="param-label">Top-P:</span>
+                                        <span class="param-value" id="customTopPValue">0.9</span>
+                                    </div>
+                                    <div class="param-slider">
+                                        <input type="range" class="slider" id="customTopP" min="0" max="1" value="0.9" step="0.05">
+                                        <input type="number" class="param-input" id="customTopPInput" min="0" max="1" value="0.9" step="0.05">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 反向代理配置 -->
+                    <div id="reverse-proxy-config" class="hidden">
+                        <div class="form-group">
+                            <label class="form-label" for="proxy-url">代理服务地址 (Base URL)</label>
+                            <input type="url" class="form-input" id="proxy-url" placeholder="https://your-proxy-address/v1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="proxy-api-key">代理API密钥 (可选)</label>
+                            <input type="text" class="form-input" id="proxy-api-key" placeholder="输入代理服务提供的API密钥">
+                        </div>
+                        <div class="form-group">
+                            <button class="form-btn" id="proxy-test-btn">测试连接并加载模型</button>
+                            <button class="form-btn secondary" id="proxy-save-btn">保存配置</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">选择模型</label>
+                            <select class="form-select" id="proxy-model-select" disabled>
+                                <option value="">请先测试连接并加载模型</option>
+                            </select>
+                        </div>
+                        <div id="proxy-status"></div>
+                    </div>
+                </div>
+
+                <div class="config-panel">
+                    <h2 class="config-title">测试对话</h2>
+                    <div class="form-group">
+                        <label class="form-label" for="testInput">测试消息：</label>
+                        <input type="text" class="form-input" id="testInput" placeholder="输入测试消息...">
+                    </div>
+                    <div class="form-group">
+                        <button class="form-btn" id="testSendBtn">发送测试</button>
+                        <button class="form-btn secondary" id="clearTestBtn">清除对话</button>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">AI回复：</label>
+                        <div id="testResponse" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 15px; min-height: 200px; max-height: 400px; overflow-y: auto; font-size: 14px; line-height: 1.5;">
+                            <div style="color: var(--text-dim); text-align: center;">等待测试消息...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 打字机效果相关
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+        async function typeWriterEffect(targetElement, htmlString, onComplete) {
+            targetElement.innerHTML = '';
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            targetElement.appendChild(cursor);
+
+            const typingContainer = document.createElement('div');
+            targetElement.insertBefore(typingContainer, cursor);
+
+            const template = document.createElement('template');
+            template.innerHTML = htmlString;
+            const contentRoot = template.content.firstElementChild;
+
+            const typingSpeed = 80;
+            const punctuationPause = 400;
+            const paragraphPause = 500;
+
+            async function typeNode(node, parentInDom) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent;
+                    let currentTextNode = document.createTextNode('');
+                    parentInDom.appendChild(currentTextNode);
+                    for (const char of text) {
+                        currentTextNode.textContent += char;
+                        if (',，'.includes(char)) {
+                            await sleep(punctuationPause);
+                        } else if ('.。!?'.includes(char)) {
+                            await sleep(punctuationPause * 1.5);
+                        } else {
+                            await sleep(typingSpeed);
+                        }
+                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const newElement = document.createElement(node.tagName);
+                    for (const attr of node.attributes) {
+                        newElement.setAttribute(attr.name, attr.value);
+                    }
+                    parentInDom.appendChild(newElement);
+
+                    if (['P', 'DIV'].includes(node.tagName)) {
+                        await sleep(paragraphPause);
+                    }
+
+                    for (const child of Array.from(node.childNodes)) {
+                        await typeNode(child, newElement);
+                    }
+                }
+            }
+            
+            const storyTextNode = contentRoot.querySelector('.story-text');
+            if (storyTextNode) {
+                const liveStoryTextDiv = document.createElement('div');
+                liveStoryTextDiv.className = 'story-text';
+                typingContainer.className = 'story-content';
+                typingContainer.appendChild(liveStoryTextDiv);
+
+                for (const child of Array.from(storyTextNode.childNodes)) {
+                    await typeNode(child, liveStoryTextDiv);
+                }
+            }
+
+            cursor.style.display = 'none';
+            if (onComplete) onComplete();
+        }
+
+
+        // 全局变量
+        let currentApiType = 'custom';
+        let gameStarted = false;
+        let gameEnded = false;
+        let currentProgress = 0;
+        let historyItems = [];
+        let milestones = [];
+        const totalProgressPoints = 110;
+        let hints = [];
+        let currentHintIndex = 0;
+        
+        let proxyCurrentConfig = { baseUrl: '', apiKey: '', model: '' };
+
+        const STORY_FRONT_RAW = `“母亲，这是一个崭新的时代，为了避免今天的意外再次发生，我们必须思考出新的对策，从根本上排除隐患。”
+----
+我和朋友受邀出席了一家古生物研究所召开的会议，他们在上个月给其他研究机构群发了一封只写着【警告】二字的电子邮件。
+在追问之下，他们声称将召开一次会议专门说明情况。
+会议开始。发言人是他们的新所长，她宣称有一种与人类外形完全一致的未知生物，从远古时代便隐藏在人类之中，一直到现在，甚至展示了一颗这种生物的大脑化石。
+“他们不会是接了什么科幻电影的策划，在耍我们，把我们当免费群演吧？这不就是人类大脑吗？而且，大脑很难留下化石吧？”
+我强忍住笑容，指着会场内几个来回转动的摄像头对朋友说道。
+“我也觉得这像个科幻猜想。但……该怎么说呢？我总觉得他们的结论不太准确。”朋友并没有笑，反而表现出了一些凝重。
+我完全不理解，也没有耐心再听，这个月来，我的头总是会痛，让我的心情一直很烦躁。
+在确认朋友不想离开后，我独自回到了酒店。
+躺在床上，我的脑中又回忆起下午的会议片段。“我为什么会觉得……”
+化石么。
+“难道……那不只是大脑……”我猛地睁开眼，一个荒诞又恐怖的念头突然涌了上来！
+我忍受着越发强烈的头痛，给朋友打了电话。
+20秒之后，手机接通了。`;
+
+        const STORY_BACK_RAW = `远古时期，一种蜗牛(图特thoth)寄生在了一只脑袋受伤导致头骨有开放性创口古猿的大脑处。
+因为古猿获取食物的效率实在太低，大大影响了图特的营养获取，于是图特改造了古猿的大脑，一步步和古猿的大脑融合，增强了古猿的智力。
+同时，图特还改造了宿主，也就是古猿的生殖系统，使自己可以随着宿主的繁衍而繁衍。
+经由这种诡异的共生，古猿族群不断发展壮大，直至成为人类。
+蜗牛们并不希望人类意识到他们的存在，所以，第一只图特女皇复苏了。她主导族群，复苏了几个助手，来一起清除所有可能打扰到他们的人类。
+在古代，通讯技术并不发达，哪怕有一些人能够意识到大脑的真相，也无法大范围传播，女皇和她复苏的”工蜂”总能在事件发酵之前清除掉威胁。但自从人类迈入信息时代，图特的秘密就几乎不可能保守下去，因为人类通信的手段实在是太多太方便了。
+又一次，一个古生物研究所的所长意识到了大脑的真相，在他马上要把秘密公布出去时，图特女皇远程脑控了它，为工蜂争取了枪杀它的时间。然后，老所长死了，由图特派出的“新所长”出现了。
+在险之又险地处理了这次事件后，这只工蜂提出了他的想法。
+他准备通过覆盖在每个人大脑上的图特来改造所有人类的认知，使人类在接触到未知生物概念时会下意识认为这只是个“科幻创意”。然后对一些人类进行测试，如果听到未知生物概念的反应为笑、戏谑，则说明改造成功目标不再具有威胁，如果反应为凝重、因惑，则说明改造不彻底，需要清除。现场的“摄像头”正是为此而存在，摄像头就是观察大家的反应。
+我的朋友便因为表情凝重被发现改造未成功而被杀，我也是因为联系她而被发现也是改造不彻底的人类，这是我被杀的直接原因。
+工蜂想达到的最终效果为：哪怕未知生物的信息在人类通信网络上广为流传，也不会有人类认为这是现实真相，这便是他所谓的从根本上解决问题。
+----
+补充信息：
+第一名女皇曾为了阻止一场战争进行了大转化，由于一次性转化的数量过多，一批新女皇苏醒了，在这之中，有一位相比图特更似人类的女皇，她对权力充满热情，并开始憎恨其他女皇的存在分走了下级图特对她的关注。于是她发起了女皇战争（即中世纪猎巫行动）并成为了最后的赢家。
+在之后的日子里，她一直以第一名女皇的面目示人，统御图特。
+并且，这个行为完全没有必要性，只是她的爱好。
+她拒绝大转化人类的提议也是因为不想再次看到其他女皇出现，毕竟，她便如此坐上王位的。`;
+        
+        const GAME_PROMPT_TEMPLATE = `现在让我们继续进行海龟汤游戏，你是主持人，我是玩家。你需要复习海龟汤的规则，并主持游戏，解答问题，你只能根据汤底，使用”是””不是””与此无关”“是也不是”四种回答。
+
+特别说明：
+- “与此无关”指的是玩家问的问题跑偏了，或与谜底不关联。
+- “是也不是”指的是玩家问的问题有部分正确，但不够准确。
+- 玩家提出的所有问题都是基于这个海龟汤的，所以你也只能根据海龟汤的汤底来回答。
+- 汤底和解谜进度判定标准都对玩家隐藏。
+
+---
+【汤面 - 供你参考】
+${STORY_FRONT_RAW.replace('----', '\n————\n')}
+---
+【汤底与补充信息 - 供你参考】
+${STORY_BACK_RAW.replace('----', '\n【补充信息】\n')}
+---
+【解谜进度积分规则 - 供你参考】
+你必须严格遵守此规则来判断是否增加进度。每个规则只能触发一次。
+1. 确实存在未知生物 (5分)
+2. 未知生物是蜗牛 (15分)
+3. “母亲”指的是未知生物的女皇/蜂后/领导者 (5分)
+4. 新的对策指改造人类认知 (10分)
+5. 头痛是因为人类/主角/”我”被改造了认知 (5分)
+6. 朋友死了（被图特杀死）(3分)
+7. ”我”也死了（被图特杀死）(2分)
+8. 未知生物扩散/繁衍/寄生的方式是母婴关系/繁衍 (20分)
+9. 未知生物和人类是寄生和被寄生的关系 (15分)
+10. 不止一个未知生物，它们有很多 (5分)
+11. *所有人类*都已经被寄生 (15分)（关键是“所有人类”，没有提到所有人类不计分，如果答到了所有人类，但没有提到是寄生，则说是也不是并不加分）（此外，基于这条，需要说明的是，因为所有人类都被寄生了，人类就是古猿和图特共生的产物，所以玩家询问任何人是否被寄生，你都要回答是。）
+12. 额外得分：图特不进行大转化彻底取代人类，是因为女皇不想再诞生更多女皇 (10分)
+---
+【已达成的规则】
+{{ACHIEVED_MILESTONES_PLACEHOLDER}}
+---
+【你的任务】
+1.  根据玩家问题和以上信息，给出“是/不是/与此无关/是也不是”的答复。
+2.  如果玩家的问题命中了【解谜进度积分规则】中**尚未达成**的某一条，你的回复**必须**包含一个特殊的标签 \`<milestone>规则ID</milestone>\` 和进度增加的文本。例如，命中规则1，则回复中应包含“解谜进度增加5分”和\`<milestone>1</milestone>\`。
+3.  如果玩家问题没有命中任何**新**的规则，或者命中了**已达成**的规则，则**不要**包含\`<milestone>\`标签和“解谜进度增加”的文本。
+4.  游戏解谜进度达到100分或以上后，玩家获胜，你需要结束本轮游戏，并展示完整汤底（包括补充部分）。
+5.  你的回复格式应该是：玩家提问内容 —— 是/不是/与此无关/是也不是 [—— 解谜进度增加x分 <milestone>ID</milestone>]（不允许生成任何该回复模板外的内容，如“好的”“游戏开始”“玩家的问题是”等）
+---
+当前总解谜进度为：{{CURRENT_PROGRESS_PLACEHOLDER}}分 (满分110分)
+
+现在，请根据以上所有规则，回答我的问题。
+玩家的问题是：`;
+
+        const clueMapping = {
+            1: { clueId: 'old-director-clue', text: '旧所长去哪了？死了吗？' },
+            2: { clueId: 'snail-clue', text: '是...蜗牛' },
+            6: { clueId: 'friend-clue', text: '朋友遭遇了不测…' },
+            7: { clueId: 'protagonist-clue', text: '这是最后的通话...' }
+        };
+
+        function initMatrixBackground() {
+            const matrixBg = document.getElementById('matrixBg');
+            if(!matrixBg) return;
+            const characters = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+            const numColumns = Math.floor(window.innerWidth / 20);
+            
+            for (let i = 0; i < numColumns; i++) {
+                const column = document.createElement('div');
+                column.className = 'matrix-column';
+                column.style.left = (i * 20) + 'px';
+                column.style.animationDuration = (Math.random() * 5 + 3) + 's';
+                column.style.animationDelay = Math.random() * 5 + 's';
+                
+                let text = '';
+                for (let j = 0; j < 50; j++) {
+                    text += characters.charAt(Math.floor(Math.random() * characters.length));
+                }
+                column.textContent = text;
+                matrixBg.appendChild(column);
+            }
+        }
+
+        function switchPage(pageName, event) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(pageName + 'Page').classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+        }
+
+        function getStoryHtmlForTyping() {
+            return `
+                <div class="story-content">
+                    <div class="story-text">
+                        <p class="dialogue-mysterious">“<span id="hint-target-3" class="hint-target">母亲</span>，这是一个崭新的时代，为了避免今天的意外再次发生，我们必须思考出<span id="hint-target-4" class="hint-target">新的对策</span>，从根本上排除隐患。”</p>
+                        <div class="separator">————</div>
+                        <p>我和朋友受邀出席了一家古生物研究所召开的会议，他们在上个月给其他研究机构群发了一封只写着<span class="highlight">【警告】</span>二字的电子邮件。</p>
+                        <p>在追问之下，他们声称将召开一次会议专门说明情况。</p>
+                        <p>会议开始。发言人是他们的<span class="clue-target" data-clue-id="old-director-clue">新所长</span>，她宣称有一种与人类外形完全一致的<span class="clue-target" data-clue-id="snail-clue">未知生物</span>，从远古时代便隐藏在人类之中，一直到现在，甚至展示了一颗<span id="hint-target-1" class="hint-target">这种生物的大脑化石</span>。</p>
+                        <p class="dialogue dialogue-protagonist">“他们不会是接了什么科幻电影的策划在耍我们，把我们当免费群演吧？这不就是人类大脑吗？而且，<span id="hint-target-2" class="hint-target">大脑很难留下化石吧？</span>”</p>
+                        <p>我强忍住笑容，指着会场内几个来回转动的摄像头对朋友说道。</p>
+                        <p class="dialogue dialogue-friend">“我也觉得这像个<span id="hint-target-5" class="hint-target">科幻猜想</span>。但……该怎么说呢？我总觉得他们的结论不太准确。”</p>
+                        <p><span class="clue-target" data-clue-id="friend-clue">朋友</span>并没有笑，反而表现出了一些凝重。</p>
+                        <p>我完全不理解，也没有耐心再听，这个月来，我的头总是会痛，这让我的心情一直很烦躁。</p>
+                        <p>在确认朋友不想离开后，我独自回到了酒店。</p>
+                        <p>躺在床上，我的脑中回忆起下午的会议片段。</p>
+                        <p class="dialogue dialogue-protagonist">“我为什么会觉得……”</p>
+                        <p>化石么。</p>
+                        <p class="dialogue dialogue-protagonist">“<span id="hint-target-7" class="hint-target">难道……那不只是大脑……</span>”</p>
+                        <p>我猛地睁开眼，<span id="hint-target-6" class="hint-target">一个荒诞又恐怖的念头突然涌了上来</span>！</p>
+                        <p>我忍受着越发强烈的头痛，给朋友打了电话。</p>
+                        <p><span class="clue-target" data-clue-id="protagonist-clue">20秒之后，手机接通了。</span></p>
+                        <div id="hint-target-8" class="hint-target" style="display: block; text-align: center; margin-top: 15px; height: 1em;"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeHints() {
+            hints = [
+                { text: '这究竟是什么化石？', targetSelector: '#hint-target-1' },
+                { text: '为什么大脑难以留下化石，但ta留下了？', targetSelector: '#hint-target-2' },
+                { text: '母亲？', targetSelector: '#hint-target-3' },
+                { text: '新的对策？', targetSelector: '#hint-target-4' },
+                { text: '为什么我们不约而同提到了这个词？', targetSelector: '#hint-target-5' },
+                { text: '我们真的是我们吗', targetSelector: '#hint-target-6' },
+                { text: '原来，我们都……', targetSelector: '#hint-target-7' },
+                { text: '为什么，它们不彻底取代我们？', requiresScore: 70, targetSelector: '#hint-target-8' }
+            ];
+            currentHintIndex = 0;
+        }
+
+        function showHint() {
+            if (gameEnded || !gameStarted) return;
+            
+            const hintBtn = document.getElementById('hintBtn');
+            if (currentHintIndex >= hints.length) {
+                hintBtn.disabled = true;
+                return;
+            }
+
+            const hint = hints[currentHintIndex];
+
+            if (hint.requiresScore && currentProgress < hint.requiresScore) {
+                alert(`此提示需要解谜进度达到 ${hint.requiresScore} 分才能解锁！`);
+                return;
+            }
+
+            const targetElement = document.querySelector(hint.targetSelector);
+            if (!targetElement) {
+                console.error('Hint target not found:', hint.targetSelector);
+                currentHintIndex++;
+                return;
+            }
+
+            if (targetElement.classList.contains('revealed')) {
+                currentHintIndex++;
+                if (currentHintIndex < hints.length) {
+                    showHint();
+                } else {
+                   hintBtn.disabled = true;
+                   hintBtn.textContent = '无提示';
+                }
+                return;
+            }
+
+            const annotation = document.createElement('span');
+            annotation.className = 'hint-annotation';
+            annotation.textContent = hint.text;
+            
+            targetElement.appendChild(annotation);
+            targetElement.classList.add('revealed');
+
+            currentHintIndex++;
+
+            if (currentHintIndex >= hints.length) {
+                hintBtn.disabled = true;
+                hintBtn.textContent = '无提示';
+            }
+        }
+
+
+        async function startGame() {
+            if (!isApiConfigured()) {
+                alert('请先在“AI配置”页面完成API配置并保存！');
+                switchPage('config', { target: document.getElementById('nav-config-btn') });
+                return;
+            }
+
+            gameStarted = true;
+            gameEnded = false;
+            currentProgress = 0;
+            historyItems = [];
+            document.getElementById('historyContainer').innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 20px;">暂无提问记录...</div>`;
+            
+            milestones = [
+                { id: 1, text: "确实存在未知生物", points: 5, achieved: false },
+                { id: 2, text: "未知生物是蜗牛", points: 15, achieved: false },
+                { id: 3, text: "“母亲”指的是未知生物的女皇/蜂后/领导者", points: 5, achieved: false },
+                { id: 4, text: "新的对策指改造人类认知", points: 10, achieved: false },
+                { id: 5, text: "头痛是因为人类/主角/”我”被改造了认知", points: 5, achieved: false },
+                { id: 6, text: "朋友死了（被图特杀死）", points: 3, achieved: false },
+                { id: 7, text: "”我”也死了（被图特杀死）", points: 2, achieved: false },
+                { id: 8, text: "未知生物扩散/繁衍/寄生的方式是母婴关系/繁衍", points: 20, achieved: false },
+                { id: 9, text: "未知生物和人类是寄生和被寄生的关系", points: 15, achieved: false },
+                { id: 10, text: "不止一个未知生物，它们有很多", points: 5, achieved: false },
+                { id: 11, text: "所有人类都已经被”寄生”", points: 15, achieved: false },
+                { id: 12, text: "额外得分：图特不进行大转化彻底取代人类，是因为女皇不想再诞生更多女皇", points: 10, achieved: false }
+            ];
+
+            setProgress(0);
+            
+            document.getElementById('progressPanel').style.display = 'block';
+            document.getElementById('historyPanel').style.display = 'block';
+            
+            const storyPanel = document.getElementById('storyPanel');
+            storyPanel.classList.remove('center');
+            storyPanel.innerHTML = '<div class="story-content center" style="padding: 20px; color: var(--text-secondary);">[正在接入故事数据流...]</div>';
+
+            document.getElementById('questionInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            const hintBtn = document.getElementById('hintBtn');
+            hintBtn.disabled = true;
+            hintBtn.textContent = '提示';
+            
+            const storyHtml = getStoryHtmlForTyping();
+            
+            const onTypingComplete = () => {
+                document.getElementById('questionInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                hintBtn.disabled = false;
+                initializeHints();
+            };
+
+            await typeWriterEffect(storyPanel, storyHtml, onTypingComplete);
+        }
+
+        async function sendQuestion() {
+            const input = document.getElementById('questionInput');
+            const question = input.value.trim();
+            
+            if (!question || gameEnded) return;
+            if (!gameStarted) {
+                alert('请先点击“开始游戏”！');
+                return;
+            }
+
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('sendBtn').innerHTML = '<div class="loading"></div>';
+
+            try {
+                const achievedMilestonesText = milestones
+                    .filter(m => m.achieved)
+                    .map(m => `规则 ${m.id}: ${m.text}`)
+                    .join('\n') || '无';
+
+                const fullPrompt = GAME_PROMPT_TEMPLATE
+                    .replace('{{CURRENT_PROGRESS_PLACEHOLDER}}', currentProgress)
+                    .replace('{{ACHIEVED_MILESTONES_PLACEHOLDER}}', achievedMilestonesText)
+                    + question;
+
+                const response = await sendMessageToAI(fullPrompt);
+                processGameResponse(response, question);
+            } catch (error) {
+                addHistoryItem(question, `错误：${error.message}`, 'error');
+            } finally {
+                if (!gameEnded) {
+                    input.disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    input.focus();
+                }
+                document.getElementById('sendBtn').textContent = '发送';
+            }
+        }
+
+        function processGameResponse(response, originalQuestion) {
+            const milestoneMatch = response.match(/<milestone>(\d+)<\/milestone>/);
+            let milestoneId = null;
+
+            if (milestoneMatch) {
+                milestoneId = parseInt(milestoneMatch[1], 10);
+                const milestone = milestones.find(m => m.id === milestoneId);
+
+                if (milestone && !milestone.achieved) {
+                    milestone.achieved = true;
+                    currentProgress += milestone.points;
+                    revealStoryClue(milestoneId);
+                }
+            }
+
+            const displayAnswer = response.replace(/<milestone>\d+<\/milestone>/g, '').trim();
+
+            let answerType = 'neutral';
+            if (displayAnswer.includes('是也不是')) answerType = 'semi-positive';
+            else if (displayAnswer.includes('是')) answerType = 'positive';
+            else if (displayAnswer.includes('不是')) answerType = 'negative';
+            else if (displayAnswer.includes('与此无关')) answerType = 'neutral';
+
+            addHistoryItem(originalQuestion, displayAnswer, answerType);
+            setProgress(currentProgress);
+        }
+
+        function revealStoryClue(milestoneId) {
+            if (!clueMapping[milestoneId]) return;
+
+            const { clueId, text } = clueMapping[milestoneId];
+            const targetElement = document.querySelector(`[data-clue-id="${clueId}"]`);
+
+            if (targetElement && !targetElement.classList.contains('revealed')) {
+                targetElement.classList.add('revealed');
+                
+                const annotation = document.createElement('span');
+                annotation.className = 'annotation';
+                annotation.textContent = text;
+                targetElement.appendChild(annotation);
+            }
+        }
+
+
+        function addHistoryItem(question, answer, type = 'neutral') {
+            const historyContainer = document.getElementById('historyContainer');
+            
+            if (historyItems.length === 0) {
+                historyContainer.innerHTML = '';
+            }
+
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            
+            historyItem.innerHTML = `
+                <div class="history-question">Q: ${question}</div>
+                <div class="history-answer ${type}">A: ${answer}</div>
+            `;
+
+            historyContainer.appendChild(historyItem);
+            historyItems.push({ question, answer, type });
+            
+            historyContainer.scrollTop = historyContainer.scrollHeight;
+        }
+
+        function setProgress(newTotal) {
+            currentProgress = Math.min(newTotal, totalProgressPoints);
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            const percentage = totalProgressPoints > 0 ? (currentProgress / totalProgressPoints * 100) : 0;
+            progressFill.style.width = percentage + '%';
+            progressText.textContent = `${Math.round(percentage)}% (${currentProgress}/${totalProgressPoints})`;
+            
+            if (currentProgress >= 100 && !gameEnded) {
+                gameEnded = true;
+                setTimeout(() => {
+                    alert('🎉 恭喜！您已成功解开谜团！真相即将揭晓...');
+                    revealTruth();
+                    document.getElementById('questionInput').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                    document.getElementById('hintBtn').disabled = true;
+                }, 500);
+            }
+        }
+        
+        function revealTruth() {
+            const storyPanel = document.getElementById('storyPanel');
+            const parts = STORY_BACK_RAW.split('----');
+            const mainTruth = parts[0].trim();
+            const extraInfo = parts[1] ? parts[1].trim() : '';
+
+            let truthHtml = `<div class="story-content" style="max-height: 500px; overflow-y: auto;"><h2 class="config-title">真相揭晓</h2>`;
+            truthHtml += `<h3 style="color: var(--accent-warning); margin-top: 20px;">汤底</h3>`;
+            mainTruth.split('\n').forEach(p => truthHtml += `<p style="text-indent: 2em;">${p.trim()}</p>`);
+            
+            if (extraInfo) {
+                truthHtml += `<h3 style="color: var(--accent-warning); margin-top: 20px;">补充信息</h3>`;
+                extraInfo.split('\n').forEach(p => truthHtml += `<p style="text-indent: 2em;">${p.trim()}</p>`);
+            }
+            
+            truthHtml += `</div>`;
+            storyPanel.innerHTML = truthHtml;
+            storyPanel.scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('hintBtn').disabled = true;
+        }
+
+        function isApiConfigured() {
+            if (currentApiType === 'custom') {
+                return document.getElementById('apiHost').value.trim() && 
+                       document.getElementById('apiKey').value.trim() &&
+                       document.getElementById('modelSelect').value;
+            } else {
+                return proxyCurrentConfig.baseUrl && proxyCurrentConfig.model;
+            }
+        }
+
+        async function fetchModels(baseUrl, apiKey) {
+            const modelsUrl = `${baseUrl.replace(/\/$/, '')}/models`;
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey) {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+
+            const response = await axios.get(modelsUrl, { headers, timeout: 10000 });
+
+            if (response.data && response.data.data) {
+                return response.data.data;
+            } else {
+                throw new Error('无法解析模型列表响应');
+            }
+        }
+
+        async function sendMessageToAI(message) {
+            let baseUrl, apiKey, model, maxTokens, temperature, topP;
+
+            if (currentApiType === 'custom') {
+                baseUrl = document.getElementById('apiHost').value.trim();
+                apiKey = document.getElementById('apiKey').value.trim();
+                model = document.getElementById('modelSelect').value;
+                maxTokens = parseInt(document.getElementById('customMaxTokensValue').textContent);
+                temperature = parseFloat(document.getElementById('customTemperatureValue').textContent);
+                topP = parseFloat(document.getElementById('customTopPValue').textContent);
+            } else {
+                baseUrl = proxyCurrentConfig.baseUrl;
+                apiKey = proxyCurrentConfig.apiKey;
+                model = proxyCurrentConfig.model;
+                maxTokens = 1024;
+                temperature = 0.7;
+                topP = 0.9;
+            }
+
+            const chatUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+            
+            const requestBody = {
+                model: model,
+                messages: [{ role: "user", content: message }],
+                max_tokens: maxTokens,
+                temperature: temperature,
+                top_p: topP,
+                stream: false
+            };
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey) {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+
+            const response = await axios.post(chatUrl, requestBody, { headers, timeout: 30000 });
+
+            if (response.data && response.data.choices && response.data.choices.length > 0) {
+                return response.data.choices[0].message.content;
+            } else {
+                throw new Error('无法解析AI回复');
+            }
+        }
+        
+        function initParamControls() {
+            setupParamControl('customMaxTokens', 'customMaxTokensValue', 'customMaxTokensInput');
+            setupParamControl('customTemperature', 'customTemperatureValue', 'customTemperatureInput');
+            setupParamControl('customTopP', 'customTopPValue', 'customTopPInput');
+            
+            document.getElementById('customAdvancedToggle')?.addEventListener('click', function() {
+                const content = document.getElementById('customAdvancedContent');
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+                this.querySelector('span').textContent = isHidden ? '▲' : '▼';
+            });
+        }
+        
+        function setupParamControl(sliderId, valueId, inputId) {
+            const slider = document.getElementById(sliderId);
+            const valueSpan = document.getElementById(valueId);
+            const input = document.getElementById(inputId);
+            
+            if (!slider || !valueSpan || !input) return;
+            
+            slider.addEventListener('input', function() {
+                valueSpan.textContent = this.value;
+                input.value = this.value;
+            });
+            
+            input.addEventListener('input', function() {
+                let value = this.type === 'number' ? parseFloat(this.value) : this.value;
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                
+                if (value < min) value = min;
+                if (value > max) value = max;
+                
+                if(this.type === 'number') this.value = value;
+                slider.value = value;
+                valueSpan.textContent = value;
+            });
+        }
+        
+        async function handleTestSend() {
+            const input = document.getElementById('testInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            if (!isApiConfigured()) {
+                alert('请先在当前模式下完成API配置并保存！');
+                return;
+            }
+
+            const responseDiv = document.getElementById('testResponse');
+            if(responseDiv.innerText.includes('等待测试消息...')) responseDiv.innerHTML = '';
+            responseDiv.innerHTML += `<div style="color: var(--accent-primary); margin-bottom: 10px;">> ${message}</div>`;
+            
+            input.value = '';
+            document.getElementById('testSendBtn').disabled = true;
+
+            try {
+                const response = await sendMessageToAI(message);
+                responseDiv.innerHTML += `<div style="color: var(--text-primary); margin-bottom: 15px; padding-left: 20px; white-space: pre-wrap;">${response}</div>`;
+            } catch (error) {
+                responseDiv.innerHTML += `<div style="color: var(--accent-error); margin-bottom: 15px;">错误: ${error.message}</div>`;
+            } finally {
+                document.getElementById('testSendBtn').disabled = false;
+                responseDiv.scrollTop = responseDiv.scrollHeight;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            initMatrixBackground();
+            initParamControls();
+
+            document.getElementById('nav-game-btn').addEventListener('click', (event) => switchPage('game', event));
+            document.getElementById('nav-config-btn').addEventListener('click', (event) => switchPage('config', event));
+
+            const apiTypeSelect = document.getElementById('apiType');
+            const customApiConfig = document.getElementById('custom-api-config');
+            const reverseProxyConfig = document.getElementById('reverse-proxy-config');
+
+            apiTypeSelect.addEventListener('change', function() {
+                currentApiType = this.value;
+                customApiConfig.classList.toggle('hidden', currentApiType !== 'custom');
+                reverseProxyConfig.classList.toggle('hidden', currentApiType !== 'proxy');
+            });
+
+            document.getElementById('testConnectBtn').addEventListener('click', async () => {
+                const host = document.getElementById('apiHost').value.trim();
+                const apiKey = document.getElementById('apiKey').value.trim();
+                if (!host || !apiKey) {
+                    alert('请填写API主机地址和密钥！');
+                    return;
+                }
+
+                const btn = document.getElementById('testConnectBtn');
+                const statusDiv = document.getElementById('connectionStatus');
+                btn.disabled = true;
+                btn.textContent = '连接中...';
+                statusDiv.innerHTML = '<div class="status-message status-info">正在获取模型...</div>';
+
+                try {
+                    const models = await fetchModels(host, apiKey);
+                    const modelSelect = document.getElementById('modelSelect');
+                    modelSelect.innerHTML = '';
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.id;
+                        modelSelect.appendChild(option);
+                    });
+                    statusDiv.innerHTML = '<div class="status-message status-success">连接成功！已获取模型列表。</div>';
+                } catch (error) {
+                    statusDiv.innerHTML = `<div class="status-message status-error">连接失败: ${error.message}</div>`;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '测试连接并获取模型';
+                }
+            });
+
+            document.getElementById('proxy-test-btn').addEventListener('click', async () => {
+                const baseUrl = document.getElementById('proxy-url').value.trim();
+                const apiKey = document.getElementById('proxy-api-key').value.trim();
+                if (!baseUrl) {
+                    alert('请填写代理服务地址！');
+                    return;
+                }
+
+                const btn = document.getElementById('proxy-test-btn');
+                const statusDiv = document.getElementById('proxy-status');
+                const modelSelect = document.getElementById('proxy-model-select');
+
+                btn.disabled = true;
+                btn.textContent = '加载中...';
+                statusDiv.innerHTML = '<div class="status-message status-info">正在从代理获取模型...</div>';
+                modelSelect.disabled = true;
+
+                try {
+                    const models = await fetchModels(baseUrl, apiKey);
+                    modelSelect.innerHTML = '';
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.id;
+                        modelSelect.appendChild(option);
+                    });
+                    modelSelect.disabled = false;
+                    statusDiv.innerHTML = '<div class="status-message status-success">加载成功！请选择模型并保存配置。</div>';
+                } catch (error) {
+                    statusDiv.innerHTML = `<div class="status-message status-error">加载失败: ${error.message}</div>`;
+                    modelSelect.innerHTML = '<option value="">加载模型失败</option>';
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '测试连接并加载模型';
+                }
+            });
+
+            document.getElementById('proxy-save-btn').addEventListener('click', () => {
+                const baseUrl = document.getElementById('proxy-url').value.trim();
+                const apiKey = document.getElementById('proxy-api-key').value.trim();
+                const model = document.getElementById('proxy-model-select').value;
+                const statusDiv = document.getElementById('proxy-status');
+
+                if (!baseUrl || !model) {
+                    alert('请确保代理地址和模型都已正确选择！');
+                    return;
+                }
+
+                proxyCurrentConfig.baseUrl = baseUrl;
+                proxyCurrentConfig.apiKey = apiKey;
+                proxyCurrentConfig.model = model;
+
+                statusDiv.innerHTML = `<div class="status-message status-success">配置已保存！<br>地址: ${baseUrl}<br>模型: ${model}</div>`;
+            });
+
+            document.getElementById('testSendBtn').addEventListener('click', handleTestSend);
+            
+            document.getElementById('clearTestBtn').addEventListener('click', () => {
+                document.getElementById('testResponse').innerHTML = '<div style="color: var(--text-dim); text-align: center;">等待测试消息...</div>';
+            });
+
+            document.getElementById('questionInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendQuestion();
+                }
+            });
+
+            document.getElementById('testInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    document.getElementById('testSendBtn').click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
