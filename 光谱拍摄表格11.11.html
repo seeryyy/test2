@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海洋光谱号拍摄清单</title>
+<style>
+    /* 全局和基础样式 */
+    :root {
+        --primary-color: #0077b6;
+        --secondary-color: #00b4d8;
+        --background-color: #f8f9fa;
+        --surface-color: #ffffff;
+        --text-color: #212529;
+        --text-muted-color: #6c757d;
+        --border-color: #dee2e6;
+        --success-color: #2a9d8f;
+        --warning-color: #fca311;
+        --danger-color: #e63946;
+        --completed-bg: #f8f9fa;
+        --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+        --border-radius: 12px;
+    }
+
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 80px; /* 为吸顶导航留出空间 */
+    }
+
+    body {
+        font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.7;
+        color: var(--text-color);
+        background-color: var(--background-color);
+        margin: 0;
+        padding-top: 60px; /* 为吸顶导航留出空间 */
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 20px;
+    }
+
+    h1 {
+        font-size: 2.5em;
+        font-weight: 700;
+        color: var(--text-color);
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    h2 {
+        font-size: 1.6em;
+        font-weight: 600;
+        color: var(--primary-color);
+        padding-bottom: 10px;
+        margin-top: 50px;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    /* 吸顶导航栏 */
+    .sticky-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 0 10px;
+        z-index: 1000;
+        overflow-x: auto;
+        white-space: nowrap;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .sticky-nav::-webkit-scrollbar { display: none; }
+    .nav-links {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        max-width: 1200px;
+        margin: 0 auto;
+        height: 60px;
+    }
+    .nav-links a {
+        display: flex;
+        align-items: center;
+        padding: 0 15px;
+        text-decoration: none;
+        color: var(--text-muted-color);
+        font-weight: 500;
+        font-size: 0.9em;
+        transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--primary-color); }
+    .nav-counter {
+        display: inline-block;
+        min-width: 22px;
+        height: 22px;
+        line-height: 22px;
+        text-align: center;
+        background-color: var(--border-color);
+        color: var(--text-muted-color);
+        border-radius: 50%;
+        font-size: 0.8em;
+        font-weight: bold;
+        margin-left: 8px;
+        transition: all 0.3s ease;
+    }
+    .nav-counter.has-pending { background-color: var(--warning-color); color: white; }
+    .nav-counter.all-done { background-color: var(--success-color); color: white; }
+
+    /* 表格样式 (桌面端) */
+    table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-bottom: 20px;
+        background-color: var(--surface-color);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+    th, td {
+        border-bottom: 1px solid var(--border-color);
+        padding: 16px 20px;
+        text-align: left;
+        vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    th { background-color: var(--primary-color); color: white; font-weight: 600; }
+    tr { transition: background-color 0.3s ease; }
+
+    .completed-row {
+        background-color: var(--completed-bg) !important;
+        text-decoration: line-through;
+        color: var(--text-muted-color);
+        opacity: 0.6;
+        filter: grayscale(80%);
+    }
+    
+    [contenteditable="true"] {
+        background-color: #fffbeb;
+        outline: 2px solid var(--warning-color);
+        border-radius: 4px;
+        padding: 2px 4px;
+    }
+    
+    .action-group {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 15px;
+    }
+    input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: var(--primary-color);
+        vertical-align: middle;
+    }
+
+    .note {
+        background-color: #e9f5ff;
+        border-left: 5px solid var(--primary-color);
+        padding: 20px 25px;
+        margin: 20px 0 40px;
+        border-radius: var(--border-radius);
+    }
+
+    .time-highlight {
+        font-weight: bold; padding: 4px 10px; border-radius: 16px;
+        color: white; white-space: nowrap; font-size: 0.8em;
+    }
+    .time-highlight-sunset, .time-highlight-傍晚 { background-color: #ff7043; }
+    .time-highlight-night { background-color: #424242; }
+    .time-highlight-sunrise { background-color: #ffa000; }
+
+    .action-btn, .add-row-btn {
+        background-color: var(--secondary-color); color: white; border: none;
+        padding: 8px 14px; border-radius: 8px; cursor: pointer;
+        font-size: 14px; transition: all 0.2s ease-in-out; font-weight: 500;
+    }
+    .action-btn:hover, .add-row-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+    .save-btn { background-color: var(--success-color); }
+    .delete-btn { background-color: var(--danger-color); }
+    .add-row-btn {
+        display: block; width: fit-content; margin: 10px auto 40px; padding: 12px 24px;
+    }
+    
+    /* --- 备注样式 --- */
+    .notes-content {
+        font-size: 0.9em;
+        color: var(--text-muted-color);
+        margin-top: 8px;
+        line-height: 1.5;
+    }
+
+
+    /* --- 移动端布局 --- */
+    @media (max-width: 768px) {
+        body { padding-top: 50px; }
+        html { scroll-padding-top: 50px; }
+        .sticky-nav { height: 50px; }
+        .nav-links a { font-size: 0.85em; padding: 0 10px; }
+        .nav-counter { width: 20px; height: 20px; line-height: 20px; }
+        .container { padding: 20px 10px; }
+        h1 { font-size: 1.8em; }
+        h2 { font-size: 1.4em; margin-top: 40px;}
+
+        table, thead, tbody, th, td, tr { display: block; }
+        thead { display: none; }
+        table { box-shadow: none; background: none; }
+
+        tr {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-areas: "main-content actions";
+            gap: 10px;
+            align-items: center;
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-md);
+            background-color: var(--surface-color);
+            padding: 15px;
+        }
+        td { padding: 0; border: none; background: none !important; }
+        
+        /* 左侧内容区 */
+        .main-content-cell { grid-area: main-content; }
+
+        /* 右侧操作区 */
+        .col-actions { grid-area: actions; }
+        .action-group {
+            flex-direction: column-reverse;
+            gap: 12px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<nav class="sticky-nav">
+    <div class="nav-links">
+        <a href="#area-boarding" data-target-table="table-boarding">登船前 <span class="nav-counter"></span></a>
+        <a href="#area-room" data-target-table="table-room">房间 <span class="nav-counter"></span></a>
+        <a href="#area-deck" data-target-table="table-deck">甲板 <span class="nav-counter"></span></a>
+        <a href="#area-maindining" data-target-table="table-maindining">主餐厅 <span class="nav-counter"></span></a>
+        <a href="#area-otherdining" data-target-table="table-otherdining">其他餐厅 <span class="nav-counter"></span></a>
+        <a href="#area-entertainment" data-target-table="table-entertainment">娱乐项目 <span class="nav-counter"></span></a>
+        <a href="#area-shore" data-target-table="table-shore">岸上游 <span class="nav-counter"></span></a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1>海洋光谱号拍摄清单</h1>
+    <div class="note">
+        <strong>使用说明：</strong>
+        <ol>
+            <li><strong>快速导航：</strong>点击顶部导航栏可快速跳转至对应区域。橙色的数字是你还有几个没拍的。</li>
+            <li><strong>查看备注：</strong>条目下方的灰色小字是备注信息，记得看！</li>
+            <li><strong>存档进度：</strong>我是靠浏览器的保存功能来存的，所以你不要换手机，也不要用不同浏览器打开，不然进度同步不过去！</li>
+            <li><strong>编辑/添加条目：</strong>点编辑可以编辑本行，点添加可以自己加项目，方便你自由发挥。</li>
+        </ol>
+    </div>
+
+    <h2 id="area-boarding">区域：登船前</h2>
+    <table id="table-boarding">
+        <thead>
+            <tr>
+                <th>镜头</th>
+                <th style="text-align: right;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 示例数据将由JS动态生成 -->
+        </tbody>
+    </table>
+    <button class="add-row-btn" data-table-id="table-boarding">+ 添加新条目</button>
+
+    <h2 id="area-room">区域：房间</h2>
+    <table id="table-room"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-room">+ 添加新条目</button>
+
+    <h2 id="area-deck">区域：甲板</h2>
+    <table id="table-deck"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-deck">+ 添加新条目</button>
+
+    <h2 id="area-maindining">区域：主餐厅</h2>
+    <table id="table-maindining"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-maindining">+ 添加新条目</button>
+
+    <h2 id="area-otherdining">区域：其他餐厅</h2>
+    <table id="table-otherdining"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-otherdining">+ 添加新条目</button>
+
+    <h2 id="area-entertainment">区域：娱乐项目</h2>
+    <table id="table-entertainment"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-entertainment">+ 添加新条目</button>
+
+    <h2 id="area-shore">区域：岸上游</h2>
+    <table id="table-shore"><tbody></tbody></table>
+    <button class="add-row-btn" data-table-id="table-shore">+ 添加新条目</button>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveData = (key, value) => {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error("Error saving to localStorage", e); }
+    };
+
+    const loadData = (key, defaultValue = null) => {
+        try { const data = localStorage.getItem(key); return data ? JSON.parse(data) : defaultValue; } catch (e) { console.error("Error loading from localStorage", e); return defaultValue; }
+    };
+
+    function updateCounters() {
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            const table = document.getElementById(link.dataset.targetTable);
+            if (!table) return;
+            const total = table.querySelectorAll('tbody tr').length;
+            const completed = table.querySelectorAll('tbody tr.completed-row').length;
+            const unfinished = total - completed;
+            const counter = link.querySelector('.nav-counter');
+            counter.classList.remove('has-pending', 'all-done');
+            if (total === 0) { counter.textContent = '0'; } 
+            else if (unfinished === 0) { counter.textContent = '✓'; counter.classList.add('all-done'); } 
+            else { counter.textContent = unfinished; counter.classList.add('has-pending'); }
+        });
+    }
+
+    function updateRowStyle(checkbox) {
+        checkbox.closest('tr')?.classList.toggle('completed-row', checkbox.checked);
+    }
+
+    function createRow(tableId, rowId, rowData, isCustom = false) {
+        const tableBody = document.getElementById(tableId).querySelector('tbody');
+        const newRow = document.createElement('tr');
+        newRow.id = rowId;
+        if (isCustom) newRow.classList.add('custom-row');
+
+        const notesText = rowData.notes || '';
+        // 生成备注的HTML
+        const notesHTML = notesText ? `
+            <div class="notes-content" data-col="notes">${notesText}</div>
+        ` : `<div class="notes-content" data-col="notes" style="display:none;"></div>`; // 即使没有备注也创建一个空的div，方便编辑时添加
+
+        newRow.innerHTML = `
+            <td class="main-content-cell">
+                <div data-col="content">${rowData.content || ''}</div>
+                ${notesHTML}
+            </td>
+            <td class="col-actions">
+                <div class="action-group">
+                    <div class="action-buttons">
+                        <button class="action-btn edit-btn">编辑</button>
+                        ${isCustom ? '<button class="action-btn delete-btn">删除</button>' : ''}
+                    </div>
+                    <input type="checkbox">
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(newRow);
+        return newRow;
+    }
+    
+    // 预设数据 - 根据新的Excel表格更新
+    const initialData = {
+        "table-boarding": [
+            {id: 'boarding_1', content: '手持护照和船票，背景是巨大的邮轮', notes: ''},
+            {id: 'boarding_2', content: '与船身合影', notes: ''},
+            {id: 'boarding_3', content: '仰拍海洋光谱号巨大的船身和Logo', notes: ''},
+            {id: 'boarding_4', content: '办理登船手续过程', notes: '全流程，从酒店到码头的交通开始'},
+            {id: 'boarding_5', content: '拿到房卡的特写', notes: ''},
+        ],
+        "table-room": [
+            {id: 'room_1', content: '第一人称视角刷卡开门', notes: ''},
+            {id: 'room_2', content: 'Room Tour：从进门到阳台的一镜到底，着重拍摄阳台看海', notes: ''},
+            {id: 'room_3', content: '床、卫生间、插电板、桌子、冰箱等所有房间内容的详细分别拍摄', notes: '可以额外拍一个，就是我们带了比如挂钩啊水杯啊，这些在房间里能有什么用的展示'},
+            {id: 'room_4', content: '白天，阳台看书/看海等摆拍内容', notes: ''},
+            {id: 'room_5', content: '阳台日出', notes: '大概六点过，得6点就起来'},
+            {id: 'room_6', content: '阳台日落', notes: '可能四点过就日落了，所以其实你得餐前去拍'},
+            {id: 'room_7', content: '阳台夜晚', notes: '快靠岸时从阳台拍岸上的景色'},
+            {id: 'room_8', content: '早餐端到阳台摆拍', notes: '早餐近景，人远景，可以拍个伸懒腰的镜头或者端着咖啡靠着栏'},
+            {id: 'room_9', content: '阳台大海为背景，手机地图显示定位在海上的界面', notes: ''},
+        ],
+        "table-deck": [
+            {id: 'deck_1', content: '在甲板拍摄启航瞬间，岸边城市逐渐远去的海景', notes: ''}, 
+            {id: 'deck_2', content: '拍摄海上日落', notes: '可能四点过就日落了，所以其实你得餐前去拍'},
+            {id: 'deck_3', content: '泳池', notes: '白天晚上都要拍，室内或室外泳池'},
+            {id: 'deck_4', content: '日光浴躺椅上休息', notes: '天气太冷了，这个酌情吧'},
+            {id: 'deck_5', content: '傍晚池畔大屏放电影', notes: ''},
+            {id: 'deck_6', content: '邮轮在目的地缓缓靠岸', notes: '可以自拍对着镜头打招呼，背景是缓缓靠岸'},
+            {id: 'deck_7', content: '下船前在甲板上和标志合影留念', notes: ''},
+            {id: 'deck_8', content: '邮轮归航，缓缓驶入母港', notes: ''}
+        ],
+        "table-maindining": [
+            {id: 'maindining_1', content: '主餐厅全景（一楼、二楼）', notes: ''}, 
+            {id: 'maindining_2', content: '启航欢迎酒会/主餐厅告别演出', notes: '这个一定要拍！一楼视角+二楼全景+第一视角自拍，背景是跳舞'},
+            {id: 'maindining_3', content: '菜单全览', notes: ''},
+            {id: 'maindining_4', content: '菜品展示（前菜、主菜、甜品）', notes: ''},
+            {id: 'maindining_5', content: '主餐厅服务/仪式感（比如倒牛奶、倒酒等）', notes: ''}
+        ],
+        "table-otherdining": [
+            {id: 'otherdining_1', content: '自助餐厅菜品展示、全景', notes: ''}, 
+            {id: 'otherdining_2', content: '比萨、冰淇淋等免费餐厅', notes: ''},
+            {id: 'otherdining_3', content: '机器人酒吧', notes: '拍摄机器人调酒的过程，拿到酒后的特写'},
+            {id: 'otherdining_4', content: '酒吧/水吧放松', notes: ''}
+        ],
+        "table-entertainment": [
+            {id: 'entertainment_1', content: '北极星观景舱', notes: '根据你参加的项目动态调整，你可以自己加减条目'}, 
+            {id: 'entertainment_2', content: '电玩厅', notes: ''},
+            {id: 'entertainment_3', content: '碰碰车', notes: ''},
+            {id: 'entertainment_4', content: '综合体育场', notes: ''},
+            {id: 'entertainment_5', content: '甲板冲浪', notes: ''},
+            {id: 'entertainment_6', content: '甲板跳伞', notes: ''},
+            {id: 'entertainment_7', content: '270度景观厅', notes: ''},
+            {id: 'entertainment_8', content: '室内日光浴场', notes: '这里的海景也很好看可以拍'}
+        ],
+        "table-shore": [
+            {id: 'shore_1', content: '第一人称视角走在异国街道上游览', notes: '根据线路自由发挥增减条目'}, 
+            {id: 'shore_2', content: '当地地标建筑、品尝特色小吃、在药妆店/商场购物的画面', notes: ''}
+        ],
+    };
+
+    function loadApp() {
+        for (const tableId in initialData) {
+            initialData[tableId].forEach(item => createRow(tableId, item.id, {content: item.content, notes: item.notes}));
+        }
+
+        const customRows = loadData('customRows', {});
+        for (const rowId in customRows) {
+            const rowInfo = customRows[rowId];
+            if (document.getElementById(rowInfo.tableId)) {
+                createRow(rowInfo.tableId, rowId, rowInfo.data, true);
+            }
+        }
+
+        document.querySelectorAll('table tbody tr').forEach(row => {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox && loadData(`checkbox_${row.id}`, false)) {
+                checkbox.checked = true;
+                updateRowStyle(checkbox);
+            }
+            // 恢复已编辑的内容
+            row.querySelectorAll('[data-col]').forEach(cell => {
+                const savedContent = loadData(`cell_${row.id}_${cell.dataset.col}`);
+                if (savedContent !== null) {
+                    cell.innerHTML = savedContent;
+                }
+                 // 如果备注为空，则不显示
+                if (cell.dataset.col === 'notes' && !cell.innerHTML.trim()) {
+                    cell.style.display = 'none';
+                } else if (cell.dataset.col === 'notes') {
+                    cell.style.display = 'block';
+                }
+            });
+        });
+        updateCounters();
+    }
+
+    function handleTableActions(event) {
+        const target = event.target;
+        const row = target.closest('tr');
+        if (!row) return;
+
+        if (target.type === 'checkbox') {
+            updateRowStyle(target);
+            saveData(`checkbox_${row.id}`, target.checked);
+            updateCounters();
+        } else if (target.classList.contains('edit-btn')) {
+            row.querySelectorAll('[data-col]').forEach(cell => {
+                cell.setAttribute('contenteditable', 'true');
+                if (cell.dataset.col === 'notes') {
+                    cell.style.display = 'block'; // 编辑时确保备注区域可见
+                }
+            });
+            target.textContent = '保存';
+            target.classList.remove('edit-btn');
+            target.classList.add('save-btn');
+            row.querySelector('[data-col="content"]')?.focus();
+        } else if (target.classList.contains('save-btn')) {
+            row.querySelectorAll('[data-col]').forEach(cell => {
+                cell.setAttribute('contenteditable', 'false');
+                const cellKey = `cell_${row.id}_${cell.dataset.col}`;
+                saveData(cellKey, cell.innerHTML);
+                if (row.classList.contains('custom-row')) {
+                    const customRows = loadData('customRows', {});
+                    if (customRows[row.id]) {
+                        customRows[row.id].data[cell.dataset.col] = cell.innerHTML;
+                        saveData('customRows', customRows);
+                    }
+                }
+                // 如果备注保存后为空，则隐藏
+                if (cell.dataset.col === 'notes' && !cell.innerHTML.trim()) {
+                    cell.style.display = 'none';
+                }
+            });
+            
+            target.textContent = '编辑';
+            target.classList.remove('save-btn');
+            target.classList.add('edit-btn');
+        } else if (target.classList.contains('delete-btn')) {
+            if (confirm('确定要删除这个条目吗？')) {
+                const rowId = row.id;
+                row.remove();
+                const customRows = loadData('customRows', {});
+                delete customRows[rowId];
+                saveData('customRows', customRows);
+                localStorage.removeItem(`checkbox_${rowId}`);
+                ['content', 'notes'].forEach(col => localStorage.removeItem(`cell_${rowId}_${col}`));
+                updateCounters();
+            }
+        }
+    }
+    
+    function handleAddRow(event) {
+        const tableId = event.target.dataset.tableId;
+        if (!tableId) return;
+        const rowId = `custom_${Date.now()}`;
+        const newRow = createRow(tableId, rowId, {content: '新条目', notes: '点击编辑修改'}, true);
+        const customRows = loadData('customRows', {});
+        customRows[rowId] = { tableId: tableId, data: { content: '新条目', notes: '点击编辑修改' } };
+        saveData('customRows', customRows);
+        updateCounters();
+        newRow.querySelector('.edit-btn')?.click();
+    }
+
+    loadApp();
+    
+    document.querySelector('.container').addEventListener('click', (event) => {
+        if (event.target.closest('table')) handleTableActions(event);
+        if (event.target.classList.contains('add-row-btn')) handleAddRow(event);
+    });
+});
+</script>
+
+</body>
+</html>
